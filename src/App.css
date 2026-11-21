@@ -191,3 +191,61 @@ body {
     cursor: pointer;
   }
 }
+
+
+/* ========================================
+   StockForge - Elastic Toast Animation
+======================================== */
+
+@keyframes sf-toast-elastic-in {
+  0% {
+    opacity: 0;
+    transform: translate3d(120%, 0, 0) scale(0.88);
+  }
+
+  60% {
+    opacity: 1;
+    transform: translate3d(-12px, 0, 0) scale(1.02);
+  }
+
+  80% {
+    transform: translate3d(5px, 0, 0) scale(0.99);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes sf-toast-elastic-out {
+  0% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+
+  25% {
+    opacity: 1;
+    transform: translate3d(-8px, 0, 0) scale(1.02);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate3d(120%, 0, 0) scale(0.88);
+  }
+}
+
+.cn-toast[data-mounted="true"] {
+  animation: sf-toast-elastic-in 650ms both;
+}
+
+.cn-toast[data-removed="true"] {
+  animation: sf-toast-elastic-out 350ms ease-in both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cn-toast {
+    animation: none !important;
+    transition: none !important;
+  }
+}
