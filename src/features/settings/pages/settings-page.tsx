@@ -46,6 +46,8 @@ interface AppPreferences {
   notifications: boolean;
   completionAlerts: boolean;
   errorAlerts: boolean;
+  imageGenerationDelay: number;
+  publishingDelay: number;
 }
 
 const DEFAULT_PREFERENCES: AppPreferences = {
@@ -55,6 +57,8 @@ const DEFAULT_PREFERENCES: AppPreferences = {
   accentColor: "violet",
   storagePath: "",
   aiProvider: "Gemini",
+  imageGenerationDelay: 30,
+  publishingDelay: 30,
   workerLimit: "2",
   retryLimit: "3",
   notifications: true,
@@ -169,7 +173,13 @@ export default function SettingsPage() {
 
   const [loadingPreferences, setLoadingPreferences] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [imageGenerationDelay, setImageGenerationDelay] = useState(
+    DEFAULT_PREFERENCES.imageGenerationDelay ?? 0,
+  );
 
+  const [publishingDelay, setPublishingDelay] = useState(
+    DEFAULT_PREFERENCES.publishingDelay ?? 30,
+  );
   const [loadingToastId, setLoadingToastId] = useState<
     string | number | undefined
   >();
@@ -212,6 +222,8 @@ export default function SettingsPage() {
         setNotifications(preferences.notifications);
         setCompletionAlerts(preferences.completionAlerts);
         setErrorAlerts(preferences.errorAlerts);
+        setImageGenerationDelay(preferences.imageGenerationDelay);
+        setPublishingDelay(preferences.publishingDelay);
       } catch (error) {
         if (!cancelled) {
           notify.error("Failed to load settings", {
@@ -266,6 +278,8 @@ export default function SettingsPage() {
       accentColor,
       storagePath,
       aiProvider,
+      imageGenerationDelay,
+      publishingDelay,
       workerLimit,
       retryLimit,
       notifications,
@@ -523,6 +537,35 @@ export default function SettingsPage() {
                     <option>Metadata</option>
                     <option>Submission</option>
                   </select>
+                </Field>
+                <Field
+                  label="Image generation delay"
+                  description="Set the delay for image generationin minutes."
+                >
+                  <input
+                    type="number"
+                    className={inputClass}
+                    value={imageGenerationDelay}
+                    onChange={(e) =>
+                      setPublishingDelay(Math.max(0, Number(e.target.value)))
+                    }
+                    placeholder="Enter image generation delay"
+                  />
+                </Field>
+
+                <Field
+                  label="Publishing delay(min)"
+                  description="Set the delay before publishing minutes."
+                >
+                  <input
+                    type="number"
+                    className={inputClass}
+                    value={publishingDelay}
+                    onChange={(e) =>
+                      setPublishingDelay(Math.max(0, Number(e.target.value)))
+                    }
+                    placeholder="Enter publishing delay"
+                  />
                 </Field>
               </>
             )}
