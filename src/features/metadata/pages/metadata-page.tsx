@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
-import ManualBatchWorkspace from "../components/manual-batch-workspace";
+import { toast } from "sonner";
+// import ManualBatchWorkspace from "../components/manual-batch-workspace";
 import {
   AlertCircle,
   Check,
@@ -260,9 +261,7 @@ export default function MetadataPage() {
     if (!selectedAsset || !selectedMetadata || !hasUnsavedChanges) return;
 
     const assetId = selectedAsset.id;
-
-    setError(null);
-    setSuccess(null);
+    const toastId = toast.loading("Saving metadata...");
 
     try {
       await invoke("save_metadata_studio_item", {
@@ -278,7 +277,6 @@ export default function MetadataPage() {
         },
       });
 
-      // Update the frontend only after the database save succeeds.
       setData((current) => {
         if (!current) return current;
 
@@ -296,9 +294,11 @@ export default function MetadataPage() {
         return next;
       });
 
-      setSuccess("Metadata changes saved successfully.");
+      toast.success("Metadata saved successfully.", { id: toastId });
     } catch (error) {
-      setError(error instanceof Error ? error.message : String(error));
+      toast.error(error instanceof Error ? error.message : String(error), {
+        id: toastId,
+      });
     }
   }
 
