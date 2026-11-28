@@ -207,6 +207,7 @@ CREATE TABLE IF NOT EXISTS "metadata_revisions" (
 	"is_current"	INTEGER NOT NULL DEFAULT 1 CHECK("is_current" IN (0, 1)),
 	"created_at"	TEXT NOT NULL,
 	"approved_at"	TEXT,
+	"category"	TEXT,
 	UNIQUE("asset_id","revision_number"),
 	FOREIGN KEY("asset_id") REFERENCES "assets"("id") ON DELETE CASCADE
 );
@@ -321,7 +322,14 @@ CREATE TABLE IF NOT EXISTS "tags" (
 	"color"	TEXT,
 	"created_at"	TEXT NOT NULL
 );
-INSERT INTO "app_settings" VALUES ('app.preferences','{"accentColor":"rose","aiProvider":"Gemini","completionAlerts":true,"defaultWorkspace":"Overview","errorAlerts":true,"notifications":true,"retryLimit":"3","startup":true,"storagePath":"D:\\StockForge\\Assets","theme":"Dark","workerLimit":"2"}','2026-11-25 07:55:12');
+INSERT INTO "app_settings" VALUES ('app.preferences','{"accentColor":"rose","aiProvider":"Gemini","completionAlerts":true,"defaultWorkspace":"Overview","errorAlerts":true,"imageGenerationDelay":30,"notifications":true,"publishingDelay":30,"retryLimit":"3","startup":true,"storagePath":"C:\\Users\\GIGABYTE\\Pictures\\StockForge Assets","theme":"Dark","workerLimit":"2"}','2026-11-26 15:35:49');
+INSERT INTO "asset_files" VALUES ('4d1bb6ad-0dcc-4945-8bc4-de6e3d772ad3','a4b948f9-4baa-4abf-822d-b35621b213c2','original','E:\lol\originals\9d38d944-c05c-4e4f-924a-df327bbda9c0\a4b948f9-4baa-4abf-822d-b35621b213c2.jpg','batman-sign-black-background-dc-superheroes-amoled-5k-8k-10k-10000x6250-4409-2392529660.jpg','image/jpeg',1045688,NULL,NULL,NULL,'2026-11-26 07:29:58');
+INSERT INTO "assets" VALUES ('a4b948f9-4baa-4abf-822d-b35621b213c2','9d38d944-c05c-4e4f-924a-df327bbda9c0',NULL,'batman-sign-black-background-dc-superheroes-amoled-5k-8k-10k-10000x6250-4409-2392529660.jpg','batman sign black background dc superheroes amoled 5k 8k 10k 10000x6250 4409 2392529660',NULL,'metadata_review','review_required','not_submitted','manual',NULL,0,'2026-11-26 07:29:58','2026-11-26 07:29:58',NULL,NULL,0);
+INSERT INTO "batches" VALUES ('200c9597-374b-410d-bbe6-4eff7fdafa69','sdasdasd',NULL,NULL,NULL,1,'draft','2026-11-26 07:19:44','2026-11-26 07:19:44',NULL);
+INSERT INTO "batches" VALUES ('9d38d944-c05c-4e4f-924a-df327bbda9c0','dfdsafdsf',NULL,NULL,NULL,1,'active','2026-11-26 07:29:58','2026-11-26 07:29:58',NULL);
+INSERT INTO "metadata_keywords" VALUES ('99689625-e584-48b7-b69e-8f906041b1ce','403220e7-5ec9-4204-8357-7aa0f2337942','dadad
+dasdad',0,'2026-11-26 07:29:58');
+INSERT INTO "metadata_revisions" VALUES ('403220e7-5ec9-4204-8357-7aa0f2337942','a4b948f9-4baa-4abf-822d-b35621b213c2',1,'batman sign black background dc superheroes amoled 5k 8k 10k 10000x6250 4409 2392529660','dasda',1,'manual',NULL,NULL,NULL,'review_required',1,'2026-11-26 07:29:58',NULL,'Architecture');
 INSERT INTO "stock_ideas" VALUES ('e4e34d34-3f5d-48a9-a434-3d2c9fbc390d','The Tech-Savvy Mentor','Lifestyle','{
   "selectedNiche": {
     "name": "Inclusive Aging and Active Seniors",
@@ -439,6 +447,119 @@ INSERT INTO "stock_ideas" VALUES ('e4e34d34-3f5d-48a9-a434-3d2c9fbc390d','The Te
   },
   "groundingMetadata": null
 }','2026-11-25T10:43:02.640Z');
+INSERT INTO "stock_ideas" VALUES ('f99574d8-627d-4145-b9d7-b703099ea08d','Urban Micro-Farm Soil Health','Environment','{
+  "selectedNiche": {
+    "name": "Regenerative Agriculture and Urban Farming",
+    "category": "Environment",
+    "description": "Visuals focused on small-scale urban gardening, soil health, and sustainable farming practices.",
+    "trendReason": "Climate consciousness is driving advertising towards proof of sustainable practices rather than just ''green'' aesthetic overlays.",
+    "commercialPotential": "high",
+    "targetBuyers": [
+      "Food and beverage brands",
+      "Environmental NGOs",
+      "Corporate sustainability reports"
+    ],
+    "sources": [
+      "https://business.adobe.com/blog/basics/stock-photography-trends"
+    ]
+  },
+  "generatedResearch": {
+    "summary": "The shift in environmental visual communication is moving from abstract green imagery to tangible proof of regenerative practices, specifically highlighting soil health and small-scale urban agricultural resilience.",
+    "trends": [
+      {
+        "trend": "Proof of Practice",
+        "reason": "Brands are increasingly required to provide visual evidence of sustainable methods rather than relying on generic eco-friendly marketing tropes.",
+        "sources": [
+          "https://business.adobe.com/blog/basics/stock-photography-trends"
+        ]
+      },
+      {
+        "trend": "Hyper-local Sustainability",
+        "reason": "Urban gardening is a visual shorthand for community-driven climate action and resource self-sufficiency.",
+        "sources": [
+          "https://business.adobe.com/blog/basics/stock-photography-trends"
+        ]
+      },
+      {
+        "trend": "Authentic Soil Narrative",
+        "reason": "Focusing on earth, mycelium, and nutrient-dense soil quality communicates long-term regenerative health to corporate stakeholders.",
+        "sources": [
+          "https://business.adobe.com/blog/basics/stock-photography-trends"
+        ]
+      }
+    ]
+  },
+  "groundingMetadata": null
+}','A close-up, high-detail photograph of a pair of hands gently crumbling dark, nutrient-rich, dark loamy soil over a small, vibrant green seedling planted in a raised wooden garden bed. In the background, a soft-focus urban rooftop garden with terracotta pots and vertical climbing plants creates a bokeh effect. The lighting is bright, natural morning sunlight that highlights the texture of the soil and the organic moisture on the leaves. Medium-tight shot, shallow depth of field, macro focus on the soil particles. Earthy tones: deep browns, rich greens, and warm sunlight hues. Professional, clean composition with generous negative space on the left for copy placement. Photorealistic, 8k resolution, documentary style.','Close-up of hands crumbling nutrient-rich soil in an urban garden','A detailed close-up of a person''s hands tending to a seedling in an urban rooftop garden, showcasing rich, healthy soil and regenerative agriculture practices for sustainability concepts.','["regenerative agriculture","urban farming","soil health","sustainability","organic gardening","climate action","rooftop garden","seedling","gardening","environment","nature","agriculture","ecology","permaculture","green living","hands","growth","biodiversity","compost","fertile","sustainable farming","local food","conservation","earth","planting","nurturing","farming","environmental awareness","urban lifestyle","healthy soil","agronomy","plant life"]','{
+  "name": "Urban Micro-Farm Soil Health",
+  "category": "Environment",
+  "imagePrompt": "A close-up, high-detail photograph of a pair of hands gently crumbling dark, nutrient-rich, dark loamy soil over a small, vibrant green seedling planted in a raised wooden garden bed. In the background, a soft-focus urban rooftop garden with terracotta pots and vertical climbing plants creates a bokeh effect. The lighting is bright, natural morning sunlight that highlights the texture of the soil and the organic moisture on the leaves. Medium-tight shot, shallow depth of field, macro focus on the soil particles. Earthy tones: deep browns, rich greens, and warm sunlight hues. Professional, clean composition with generous negative space on the left for copy placement. Photorealistic, 8k resolution, documentary style.",
+  "trendResearch": {
+    "summary": "The shift in environmental visual communication is moving from abstract green imagery to tangible proof of regenerative practices, specifically highlighting soil health and small-scale urban agricultural resilience.",
+    "trends": [
+      {
+        "trend": "Proof of Practice",
+        "reason": "Brands are increasingly required to provide visual evidence of sustainable methods rather than relying on generic eco-friendly marketing tropes.",
+        "sources": [
+          "https://business.adobe.com/blog/basics/stock-photography-trends"
+        ]
+      },
+      {
+        "trend": "Hyper-local Sustainability",
+        "reason": "Urban gardening is a visual shorthand for community-driven climate action and resource self-sufficiency.",
+        "sources": [
+          "https://business.adobe.com/blog/basics/stock-photography-trends"
+        ]
+      },
+      {
+        "trend": "Authentic Soil Narrative",
+        "reason": "Focusing on earth, mycelium, and nutrient-dense soil quality communicates long-term regenerative health to corporate stakeholders.",
+        "sources": [
+          "https://business.adobe.com/blog/basics/stock-photography-trends"
+        ]
+      }
+    ]
+  },
+  "metadata": {
+    "title": "Close-up of hands crumbling nutrient-rich soil in an urban garden",
+    "description": "A detailed close-up of a person''s hands tending to a seedling in an urban rooftop garden, showcasing rich, healthy soil and regenerative agriculture practices for sustainability concepts.",
+    "keywords": [
+      "regenerative agriculture",
+      "urban farming",
+      "soil health",
+      "sustainability",
+      "organic gardening",
+      "climate action",
+      "rooftop garden",
+      "seedling",
+      "gardening",
+      "environment",
+      "nature",
+      "agriculture",
+      "ecology",
+      "permaculture",
+      "green living",
+      "hands",
+      "growth",
+      "biodiversity",
+      "compost",
+      "fertile",
+      "sustainable farming",
+      "local food",
+      "conservation",
+      "earth",
+      "planting",
+      "nurturing",
+      "farming",
+      "environmental awareness",
+      "urban lifestyle",
+      "healthy soil",
+      "agronomy",
+      "plant life"
+    ]
+  },
+  "groundingMetadata": null
+}','2026-11-26T05:35:53.685Z');
 CREATE INDEX IF NOT EXISTS "idx_activity_created" ON "activity_events" (
 	"created_at"	DESC
 );
@@ -467,6 +588,9 @@ CREATE INDEX IF NOT EXISTS "idx_assets_created" ON "assets" (
 );
 CREATE INDEX IF NOT EXISTS "idx_assets_hash" ON "assets" (
 	"content_hash"
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "idx_assets_id_unique_repair" ON "assets" (
+	"id"
 );
 CREATE UNIQUE INDEX IF NOT EXISTS "idx_assets_one_selected_per_idea" ON "assets" (
 	"stock_idea_id"
@@ -510,6 +634,9 @@ CREATE UNIQUE INDEX IF NOT EXISTS "idx_metadata_current" ON "metadata_revisions"
 ) WHERE "is_current" = 1;
 CREATE INDEX IF NOT EXISTS "idx_metadata_keywords_revision" ON "metadata_keywords" (
 	"metadata_revision_id"
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "idx_metadata_revisions_id_unique_repair" ON "metadata_revisions" (
+	"id"
 );
 CREATE INDEX IF NOT EXISTS "idx_production_tasks_batch" ON "production_tasks" (
 	"batch_id",

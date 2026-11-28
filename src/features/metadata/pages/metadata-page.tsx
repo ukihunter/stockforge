@@ -35,6 +35,7 @@ interface MetadataStudioImage {
 interface MetadataStudioItem {
   id: string;
   name: string;
+  source: "generated" | "manual";
   category: string;
   title: string;
   description: string;
@@ -103,8 +104,8 @@ export default function MetadataPage() {
   const [data, setData] = useState<MetadataStudioData | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [activeWorkspace, setActiveWorkspace] = useState<"ideas" | "manual">(
-    "ideas",
+  const [activeTab, setActiveTab] = useState<"all" | "generated" | "manual">(
+    "all",
   );
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
@@ -174,26 +175,49 @@ export default function MetadataPage() {
   const filteredItems = useMemo(() => {
     const query = search.trim().toLowerCase();
 
-    if (!query) return items;
+    return items.filter((item) => {
+      const matchesTab = activeTab === "all" || item.source === activeTab;
 
-    return items.filter((item) =>
-      [item.name, item.category, item.title, item.description, ...item.keywords]
+      if (!matchesTab) return false;
+
+      if (!query) return true;
+
+      return [
+        item.name,
+        item.category,
+        item.title,
+        item.description,
+        ...item.keywords,
+      ]
         .join(" ")
         .toLowerCase()
-        .includes(query),
-    );
-  }, [items, search]);
+        .includes(query);
+    });
+  }, [items, search, activeTab]);
 
-  const selectedAsset = items.find((item) => item.id === selectedId) ?? null;
+  const selectedAsset =
+    filteredItems.find((item) => item.id === selectedId) ??
+    filteredItems[0] ??
+    null;
 
   const selectedImage = selectedAsset ? getSelectedImage(selectedAsset) : null;
 
-  const missingImageItems = items.filter((item) => !hasImage(item));
+  // Only generated ideas can be selected for bulk image generation.
+  const missingImageItems = filteredItems.filter(
+    (item) => item.source === "generated" && !hasImage(item),
+  );
+
+  const missingImageCount = filteredItems.filter(
+    (item) => !hasImage(item),
+  ).length;
+
+  const imagesReadyCount = filteredItems.filter(hasImage).length;
 
   const selectedMissingCount = selectedIds.size;
 
   async function handleImportImage() {
-    if (!selectedAsset || importing) return;
+    if (!selectedAsset || importing || selectedAsset.source !== "generated")
+      return;
 
     try {
       setError(null);
@@ -239,7 +263,7 @@ export default function MetadataPage() {
   }
 
   function toggleSelection(item: MetadataStudioItem) {
-    if (hasImage(item)) return;
+    if (item.source !== "generated" || hasImage(item)) return;
 
     setSelectedIds((current) => {
       const next = new Set(current);
@@ -253,7 +277,6 @@ export default function MetadataPage() {
       return next;
     });
   }
-
   function toggleSelectAll() {
     setSelectedIds((current) => {
       const allSelected = missingImageItems.every((item) =>
@@ -318,516 +341,519 @@ export default function MetadataPage() {
         </div>
       )}
       <div className="mb-5 flex flex-wrap gap-2 border-b border-[#272B35] pb-3">
-        <button
-          type="button"
-          onClick={() => setActiveWorkspace("ideas")}
-          className={`rounded-lg px-4 py-2 text-xs font-medium transition ${
-            activeWorkspace === "ideas"
-              ? "sf-accent-soft text-white"
-              : "text-slate-400 hover:bg-[#222630] hover:text-white"
-          }`}
-        >
-          Stock Ideas
-        </button>
+        {(
+          [
+            { id: "all", label: "All" },
+            { id: "generated", label: "Generated" },
+            { id: "manual", label: "Manual" },
+          ] as const
+        ).map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            onClick={() => {
+              setActiveTab(tab.id);
+              setSelectedIds(new Set());
 
-        <button
-          type="button"
-          onClick={() => setActiveWorkspace("manual")}
-          className={`rounded-lg px-4 py-2 text-xs font-medium transition ${
-            activeWorkspace === "manual"
-              ? "sf-accent-soft text-white"
-              : "text-slate-400 hover:bg-[#222630] hover:text-white"
-          }`}
-        >
-          Manual Batches
-        </button>
+              const firstItem = items.find(
+                (item) => tab.id === "all" || item.source === tab.id,
+              );
+
+              setSelectedId(firstItem?.id ?? null);
+            }}
+            className={`rounded-lg px-4 py-2 text-xs font-medium transition ${
+              activeTab === tab.id
+                ? "sf-accent-soft text-white"
+                : "text-slate-400 hover:bg-[#222630] hover:text-white"
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
-      {activeWorkspace === "ideas" ? (
-        <>
-          <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <Panel className="p-4">
-              <p className="text-xs text-slate-400">Unpublished ideas</p>
 
-              <p className="mt-2 text-2xl font-semibold text-white">
-                {data?.total ?? "—"}
-              </p>
-            </Panel>
+      <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <Panel className="p-4">
+          <p className="text-xs text-slate-400">Unpublished ideas</p>
 
-            <Panel className="p-4">
-              <p className="text-xs text-slate-400">Missing images</p>
+          <p className="mt-2 text-2xl font-semibold text-white">
+            {loading ? "—" : filteredItems.length}
+          </p>
+        </Panel>
 
-              <p className="mt-2 text-2xl font-semibold text-amber-400">
-                {data?.missingImages ?? "—"}
-              </p>
-            </Panel>
+        <Panel className="p-4">
+          <p className="text-xs text-slate-400">Missing images</p>
 
-            <Panel className="p-4">
-              <p className="text-xs text-slate-400">Images ready</p>
+          <p className="mt-2 text-2xl font-semibold text-amber-400">
+            {loading ? "—" : missingImageCount}
+          </p>
+        </Panel>
 
-              <p className="mt-2 text-2xl font-semibold text-emerald-400">
-                {data?.imagesReady ?? "—"}
-              </p>
-            </Panel>
-          </div>
+        <Panel className="p-4">
+          <p className="text-xs text-slate-400">Images ready</p>
 
-          <div className="grid grid-cols-1 gap-4 xl:grid-cols-[280px_minmax(0,1fr)_280px]">
-            {/* Stock ideas list */}
+          <p className="mt-2 text-2xl font-semibold text-emerald-400">
+            {loading ? "—" : imagesReadyCount}
+          </p>
+        </Panel>
+      </div>
 
-            <Panel className="h-fit">
-              <PanelHeading
-                title="Stock ideas"
-                description={`${filteredItems.length} ideas`}
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[280px_minmax(0,1fr)_280px]">
+        {/* Stock ideas list */}
+        <Panel>
+          <PanelHeading
+            title={
+              selectedAsset?.source === "manual"
+                ? "Imported metadata"
+                : "Generated metadata"
+            }
+            description={
+              selectedAsset?.source === "manual"
+                ? "Metadata associated with this imported asset"
+                : "Information saved from Gemini"
+            }
+          />
+          <div className="border-b border-[#272B35] p-3">
+            <div className="relative">
+              <Search
+                size={14}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500"
               />
 
-              <div className="border-b border-[#272B35] p-3">
-                <div className="relative">
-                  <Search
-                    size={14}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500"
-                  />
-
-                  <input
-                    className={`${inputClass} py-2 pl-8 text-xs`}
-                    placeholder="Search ideas..."
-                    value={search}
-                    onChange={(event) => setSearch(event.target.value)}
-                  />
-                </div>
-
-                <div className="mt-3 flex items-center justify-between">
-                  <button
-                    type="button"
-                    onClick={toggleSelectAll}
-                    disabled={missingImageItems.length === 0}
-                    className="text-xs sf-accent-text  transition hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    {missingImageItems.length > 0 &&
-                    missingImageItems.every((item) => selectedIds.has(item.id))
-                      ? "Deselect all"
-                      : "Select missing images"}
-                  </button>
-
-                  <span className="text-[11px] text-slate-500">
-                    {selectedMissingCount} selected
-                  </span>
-                </div>
-              </div>
-
-              <div className="max-h-[650px] space-y-1 overflow-y-auto p-2">
-                {loading ? (
-                  <p className="p-4 text-center text-xs text-slate-500">
-                    Loading stock ideas...
-                  </p>
-                ) : filteredItems.length === 0 ? (
-                  <p className="p-4 text-center text-xs text-slate-500">
-                    No stock ideas found.
-                  </p>
-                ) : (
-                  filteredItems.map((item) => {
-                    const isSelected = selectedId === item.id;
-                    const isChecked = selectedIds.has(item.id);
-                    const canSelect = !hasImage(item);
-
-                    return (
-                      <div
-                        key={item.id}
-                        className={`flex items-start gap-2 rounded-lg p-3 transition ${
-                          isSelected ? "sf-accent-soft " : "hover:bg-[#222630]"
-                        }`}
-                      >
-                        {canSelect && (
-                          <input
-                            type="checkbox"
-                            checked={isChecked}
-                            onChange={() => toggleSelection(item)}
-                            aria-label={`Select ${item.name} for image generation`}
-                            className="mt-1 size-3.5 shrink-0 sf-accent-soft"
-                          />
-                        )}
-
-                        <button
-                          type="button"
-                          onClick={() => setSelectedId(item.id)}
-                          className="min-w-0 flex-1 text-left"
-                        >
-                          <div className="flex items-start gap-2">
-                            <ImageIcon
-                              size={17}
-                              className="mt-0.5 shrink-0 text-slate-400"
-                            />
-
-                            <div className="min-w-0 flex-1">
-                              <p className="truncate text-xs font-medium text-slate-200">
-                                {item.name}
-                              </p>
-
-                              <p className="mt-1 truncate text-[11px] text-slate-500">
-                                {item.category}
-                              </p>
-
-                              <div className="mt-2">
-                                <StatusBadge status={getImageStatus(item)} />
-                              </div>
-
-                              {item.images.length > 0 && (
-                                <p className="mt-2 text-[10px] text-slate-500">
-                                  {item.images.length} image attempt
-                                  {item.images.length !== 1 ? "s" : ""}
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                        </button>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            </Panel>
-
-            {/* Metadata and image details */}
-
-            <div className="min-w-0 space-y-4">
-              <Panel>
-                <PanelHeading
-                  title="Asset preview"
-                  description={selectedAsset?.name ?? "Select a stock idea"}
-                />
-
-                <div className="flex aspect-[16/7] flex-col items-center justify-center gap-3 bg-gradient-to-br from-indigo-500/10 via-[#25283A] to-slate-900">
-                  {selectedImage?.imagePath ? (
-                    <>
-                      <Check size={36} className="text-emerald-400" />
-
-                      <p className="text-sm text-emerald-300">
-                        Image file linked
-                      </p>
-
-                      <p className="max-w-[80%] break-all text-center text-[11px] text-slate-500">
-                        {getFileName(selectedImage.imagePath)}
-                      </p>
-
-                      {selectedImage.isSelected && (
-                        <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-[10px] text-emerald-400">
-                          Selected image
-                        </span>
-                      )}
-                    </>
-                  ) : (
-                    <>
-                      <ImageIcon size={48} className="text-white/30" />
-
-                      <p className="text-xs text-slate-500">
-                        No image available yet
-                      </p>
-                    </>
-                  )}
-                </div>
-
-                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#272B35] p-4">
-                  <div>
-                    <p className="text-xs font-medium text-slate-200">
-                      Manual image import
-                    </p>
-
-                    <p className="mt-1 text-[11px] text-slate-500">
-                      Add an existing image to this idea.
-                    </p>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={handleImportImage}
-                    disabled={!selectedAsset || importing}
-                    className={`${buttonClass} shrink-0`}
-                  >
-                    <Upload size={14} />
-
-                    {importing ? "Importing..." : "Import image"}
-                  </button>
-                </div>
-              </Panel>
-
-              {/* Image attempts */}
-
-              <Panel>
-                <PanelHeading
-                  title="Image attempts"
-                  description={
-                    selectedAsset
-                      ? `${selectedAsset.images.length} saved attempts`
-                      : "Select a stock idea"
-                  }
-                />
-
-                {selectedAsset ? (
-                  selectedAsset.images.length > 0 ? (
-                    <div className="divide-y divide-[#272B35]">
-                      {selectedAsset.images.map((image, index) => (
-                        <div
-                          key={image.assetId}
-                          className="flex items-center gap-3 p-4"
-                        >
-                          <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-[#303541] bg-[#191C24]">
-                            <ImageIcon size={16} className="text-slate-400" />
-                          </div>
-
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-xs font-medium text-slate-200">
-                              Image attempt {index + 1}
-                            </p>
-
-                            <p className="mt-1 truncate text-[11px] text-slate-500">
-                              {image.imagePath
-                                ? getFileName(image.imagePath)
-                                : image.imageGenerationStatus}
-                            </p>
-
-                            <p className="mt-1 text-[10px] text-slate-500">
-                              {formatDate(image.createdAt)}
-                            </p>
-                          </div>
-
-                          <div className="flex shrink-0 flex-col items-end gap-2">
-                            <StatusBadge
-                              status={
-                                image.imagePath
-                                  ? "Ready"
-                                  : image.imageGenerationStatus
-                              }
-                            />
-
-                            {image.isSelected && (
-                              <span className="text-[10px] text-emerald-400">
-                                Selected
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="p-5 text-center">
-                      <ImageIcon size={28} className="mx-auto text-slate-600" />
-
-                      <p className="mt-3 text-xs text-slate-400">
-                        No image attempts yet.
-                      </p>
-
-                      <p className="mt-1 text-[11px] text-slate-500">
-                        Import an existing image or generate one later.
-                      </p>
-                    </div>
-                  )
-                ) : (
-                  <p className="p-5 text-xs text-slate-500">
-                    Select a stock idea to view its image attempts.
-                  </p>
-                )}
-              </Panel>
-
-              {/* Generated metadata */}
-
-              <Panel>
-                <PanelHeading
-                  title="Generated metadata"
-                  description="Information saved from Gemini"
-                />
-
-                {selectedAsset ? (
-                  <div className="space-y-5 p-5">
-                    <div>
-                      <div className="mb-2 flex items-center justify-between">
-                        <label className="text-xs font-medium text-slate-300">
-                          Title
-                        </label>
-
-                        <span className="text-[11px] text-slate-500">
-                          {selectedAsset.title.length} characters
-                        </span>
-                      </div>
-
-                      <textarea
-                        readOnly
-                        className={`${inputClass} min-h-20 resize-y`}
-                        value={selectedAsset.title}
-                      />
-                    </div>
-
-                    <div>
-                      <div className="mb-2 flex items-center justify-between">
-                        <label className="text-xs font-medium text-slate-300">
-                          Description
-                        </label>
-
-                        <span className="text-[11px] text-slate-500">
-                          {selectedAsset.description.length} characters
-                        </span>
-                      </div>
-
-                      <textarea
-                        readOnly
-                        className={`${inputClass} min-h-32 resize-y`}
-                        value={selectedAsset.description}
-                      />
-                    </div>
-
-                    <div>
-                      <div className="mb-2 flex items-center justify-between">
-                        <label className="text-xs font-medium text-slate-300">
-                          Keywords
-                        </label>
-
-                        <span className="text-[11px] text-slate-500">
-                          {selectedAsset.keywords.length} keywords
-                        </span>
-                      </div>
-
-                      <div className="flex flex-wrap gap-2 rounded-lg border border-[#303541] bg-[#111318] p-3">
-                        {selectedAsset.keywords.map((keyword, index) => (
-                          <span
-                            key={`${keyword}-${index}`}
-                            className="rounded-md border border-[#45405F] bg-[#29243D] px-2 py-1 text-xs text-[#C5BCFF]"
-                          >
-                            {keyword}
-                          </span>
-                        ))}
-
-                        {selectedAsset.keywords.length === 0 && (
-                          <p className="text-xs text-slate-500">
-                            No keywords available.
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <p className="p-5 text-xs text-slate-500">
-                    Select a stock idea to view its metadata.
-                  </p>
-                )}
-              </Panel>
+              <input
+                className={`${inputClass} py-2 pl-8 text-xs`}
+                placeholder="Search assets..."
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+              />
             </div>
 
-            {/* Image generation and idea information */}
+            <div className="mt-3 flex items-center justify-between">
+              <button
+                type="button"
+                onClick={toggleSelectAll}
+                disabled={missingImageItems.length === 0}
+                className="text-xs sf-accent-text  transition hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {missingImageItems.length > 0 &&
+                missingImageItems.every((item) => selectedIds.has(item.id))
+                  ? "Deselect all"
+                  : "Select missing images"}
+              </button>
 
-            <div className="space-y-4">
-              <Panel>
-                <PanelHeading
-                  title="Image generation"
-                  description="Saved Gemini image prompt"
-                />
-
-                <div className="p-4">
-                  {selectedAsset ? (
-                    <>
-                      <div className="mb-3 flex items-center gap-2 text-sm font-medium text-[#C5BCFF]">
-                        <Sparkles size={16} />
-                        Image prompt
-                      </div>
-
-                      <textarea
-                        readOnly
-                        className={`${inputClass} min-h-44 resize-y text-xs leading-relaxed`}
-                        value={selectedAsset.imagePrompt}
-                      />
-
-                      <div className="mt-3 flex items-center justify-between">
-                        <span className="text-xs text-slate-400">
-                          Image status
-                        </span>
-
-                        <StatusBadge status={getImageStatus(selectedAsset)} />
-                      </div>
-                    </>
-                  ) : (
-                    <p className="text-xs text-slate-500">
-                      Select an idea to view its image prompt.
-                    </p>
-                  )}
-                </div>
-              </Panel>
-
-              <Panel className="p-4">
-                <h3 className="text-sm font-semibold text-white">
-                  Bulk selection
-                </h3>
-
-                <p className="mt-2 text-xs leading-relaxed text-slate-400">
-                  Select multiple ideas without images. They will be available
-                  for bulk image generation.
-                </p>
-
-                <div className="mt-4 flex items-center justify-between">
-                  <span className="text-xs text-slate-400">Selected ideas</span>
-
-                  <span className="text-sm font-semibold text-white">
-                    {selectedMissingCount}
-                  </span>
-                </div>
-
-                {selectedMissingCount > 0 && (
-                  <button
-                    type="button"
-                    className={`${buttonClass} mt-3 w-full`}
-                    onClick={clearSelection}
-                  >
-                    <X size={14} />
-                    Clear selection
-                  </button>
-                )}
-
-                <div className="mt-3 rounded-lg border border-[#303541] bg-[#111318] p-3">
-                  <div className="flex items-center gap-2 text-xs text-slate-400">
-                    <Clock3 size={14} />
-                    Image generation queue will be implemented next.
-                  </div>
-                </div>
-              </Panel>
-
-              <Panel className="p-4">
-                <h3 className="text-sm font-semibold text-white">
-                  Idea information
-                </h3>
-
-                {selectedAsset ? (
-                  <div className="mt-3 space-y-3 text-xs">
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="text-slate-400">Category</span>
-
-                      <span className="text-right text-slate-200">
-                        {selectedAsset.category}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="text-slate-400">Created</span>
-
-                      <span className="text-right text-slate-200">
-                        {formatDate(selectedAsset.createdAt)}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="text-slate-400">Image attempts</span>
-
-                      <span className="text-right text-slate-200">
-                        {selectedAsset.images.length}
-                      </span>
-                    </div>
-                  </div>
-                ) : (
-                  <p className="mt-3 text-xs text-slate-500">
-                    No idea selected.
-                  </p>
-                )}
-              </Panel>
+              <span className="text-[11px] text-slate-500">
+                {selectedMissingCount} selected
+              </span>
             </div>
           </div>
-        </>
-      ) : (
-        <ManualBatchWorkspace />
-      )}
+
+          <div className="max-h-[650px] space-y-1 overflow-y-auto p-2">
+            {loading ? (
+              <p className="p-4 text-center text-xs text-slate-500">
+                Loading stock ideas...
+              </p>
+            ) : filteredItems.length === 0 ? (
+              <p className="p-4 text-center text-xs text-slate-500">
+                No assets found in this collection.
+              </p>
+            ) : (
+              filteredItems.map((item) => {
+                const isSelected = selectedId === item.id;
+                const isChecked = selectedIds.has(item.id);
+                const canSelect =
+                  item.source === "generated" && !hasImage(item);
+
+                return (
+                  <div
+                    key={item.id}
+                    className={`flex items-start gap-2 rounded-lg p-3 transition ${
+                      isSelected ? "sf-accent-soft " : "hover:bg-[#222630]"
+                    }`}
+                  >
+                    {canSelect && (
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={() => toggleSelection(item)}
+                        aria-label={`Select ${item.name} for image generation`}
+                        className="mt-1 size-3.5 shrink-0 sf-accent-soft"
+                      />
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => setSelectedId(item.id)}
+                      className="min-w-0 flex-1 text-left"
+                    >
+                      <div className="flex items-start gap-2">
+                        <ImageIcon
+                          size={17}
+                          className="mt-0.5 shrink-0 text-slate-400"
+                        />
+
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-xs font-medium text-slate-200">
+                            {item.name}
+                          </p>
+
+                          <p className="mt-1 truncate text-[11px] text-slate-500">
+                            {item.category}
+                          </p>
+
+                          <div className="mt-2">
+                            <StatusBadge status={getImageStatus(item)} />
+                          </div>
+
+                          {item.images.length > 0 && (
+                            <p className="mt-2 text-[10px] text-slate-500">
+                              {item.images.length} image attempt
+                              {item.images.length !== 1 ? "s" : ""}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </button>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </Panel>
+
+        {/* Metadata and image details */}
+
+        <div className="min-w-0 space-y-4">
+          <Panel>
+            <PanelHeading
+              title="Asset preview"
+              description={selectedAsset?.name ?? "Select a stock idea"}
+            />
+
+            <div className="flex aspect-[16/7] flex-col items-center justify-center gap-3 bg-gradient-to-br from-indigo-500/10 via-[#25283A] to-slate-900">
+              {selectedImage?.imagePath ? (
+                <>
+                  <Check size={36} className="text-emerald-400" />
+
+                  <p className="text-sm text-emerald-300">Image file linked</p>
+
+                  <p className="max-w-[80%] break-all text-center text-[11px] text-slate-500">
+                    {getFileName(selectedImage.imagePath)}
+                  </p>
+
+                  {selectedImage.isSelected && (
+                    <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-[10px] text-emerald-400">
+                      Selected image
+                    </span>
+                  )}
+                </>
+              ) : (
+                <>
+                  <ImageIcon size={48} className="text-white/30" />
+
+                  <p className="text-xs text-slate-500">
+                    No image available yet
+                  </p>
+                </>
+              )}
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#272B35] p-4">
+              <div>
+                <p className="text-xs font-medium text-slate-200">
+                  Manual image import
+                </p>
+
+                <p className="mt-1 text-[11px] text-slate-500">
+                  Add an existing image to this idea.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleImportImage}
+                disabled={
+                  !selectedAsset ||
+                  selectedAsset.source !== "generated" ||
+                  importing
+                }
+                className={`${buttonClass} shrink-0`}
+              >
+                <Upload size={14} />
+                {importing ? "Importing..." : "Import image"}
+              </button>
+            </div>
+          </Panel>
+
+          {/* Image attempts */}
+
+          <Panel>
+            <PanelHeading
+              title="Image attempts"
+              description={
+                selectedAsset
+                  ? `${selectedAsset.images.length} saved attempts`
+                  : "Select a stock idea"
+              }
+            />
+
+            {selectedAsset ? (
+              selectedAsset.images.length > 0 ? (
+                <div className="divide-y divide-[#272B35]">
+                  {selectedAsset.images.map((image, index) => (
+                    <div
+                      key={image.assetId}
+                      className="flex items-center gap-3 p-4"
+                    >
+                      <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-[#303541] bg-[#191C24]">
+                        <ImageIcon size={16} className="text-slate-400" />
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-xs font-medium text-slate-200">
+                          Image attempt {index + 1}
+                        </p>
+
+                        <p className="mt-1 truncate text-[11px] text-slate-500">
+                          {image.imagePath
+                            ? getFileName(image.imagePath)
+                            : image.imageGenerationStatus}
+                        </p>
+
+                        <p className="mt-1 text-[10px] text-slate-500">
+                          {formatDate(image.createdAt)}
+                        </p>
+                      </div>
+
+                      <div className="flex shrink-0 flex-col items-end gap-2">
+                        <StatusBadge
+                          status={
+                            image.imagePath
+                              ? "Ready"
+                              : image.imageGenerationStatus
+                          }
+                        />
+
+                        {image.isSelected && (
+                          <span className="text-[10px] text-emerald-400">
+                            Selected
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-5 text-center">
+                  <ImageIcon size={28} className="mx-auto text-slate-600" />
+
+                  <p className="mt-3 text-xs text-slate-400">
+                    No image attempts yet.
+                  </p>
+
+                  <p className="mt-1 text-[11px] text-slate-500">
+                    Import an existing image or generate one later.
+                  </p>
+                </div>
+              )
+            ) : (
+              <p className="p-5 text-xs text-slate-500">
+                Select a stock idea to view its image attempts.
+              </p>
+            )}
+          </Panel>
+
+          {/* Generated metadata */}
+
+          <Panel>
+            <PanelHeading
+              title="Generated metadata"
+              description="Information saved from Gemini"
+            />
+
+            {selectedAsset ? (
+              <div className="space-y-5 p-5">
+                <div>
+                  <div className="mb-2 flex items-center justify-between">
+                    <label className="text-xs font-medium text-slate-300">
+                      Title
+                    </label>
+
+                    <span className="text-[11px] text-slate-500">
+                      {selectedAsset.title.length} characters
+                    </span>
+                  </div>
+
+                  <textarea
+                    readOnly
+                    className={`${inputClass} min-h-20 resize-y`}
+                    value={selectedAsset.title}
+                  />
+                </div>
+
+                <div>
+                  <div className="mb-2 flex items-center justify-between">
+                    <label className="text-xs font-medium text-slate-300">
+                      Description
+                    </label>
+
+                    <span className="text-[11px] text-slate-500">
+                      {selectedAsset.description.length} characters
+                    </span>
+                  </div>
+
+                  <textarea
+                    readOnly
+                    className={`${inputClass} min-h-32 resize-y`}
+                    value={selectedAsset.description}
+                  />
+                </div>
+
+                <div>
+                  <div className="mb-2 flex items-center justify-between">
+                    <label className="text-xs font-medium text-slate-300">
+                      Keywords
+                    </label>
+
+                    <span className="text-[11px] text-slate-500">
+                      {selectedAsset.keywords.length} keywords
+                    </span>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2 rounded-lg border border-[#303541] bg-[#111318] p-3">
+                    {selectedAsset.keywords.map((keyword, index) => (
+                      <span
+                        key={`${keyword}-${index}`}
+                        className="rounded-md border border-[#45405F] bg-[#29243D] px-2 py-1 text-xs text-[#C5BCFF]"
+                      >
+                        {keyword}
+                      </span>
+                    ))}
+
+                    {selectedAsset.keywords.length === 0 && (
+                      <p className="text-xs text-slate-500">
+                        No keywords available.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <p className="p-5 text-xs text-slate-500">
+                Select a stock idea to view its metadata.
+              </p>
+            )}
+          </Panel>
+        </div>
+
+        {/* Image generation and idea information */}
+
+        <div className="space-y-4">
+          <Panel>
+            <PanelHeading
+              title="Image generation"
+              description="Saved Gemini image prompt"
+            />
+
+            <div className="p-4">
+              {selectedAsset ? (
+                <>
+                  <div className="mb-3 flex items-center gap-2 text-sm font-medium text-[#C5BCFF]">
+                    <Sparkles size={16} />
+                    Image prompt
+                  </div>
+
+                  <textarea
+                    readOnly
+                    className={`${inputClass} min-h-44 resize-y text-xs leading-relaxed`}
+                    value={selectedAsset.imagePrompt}
+                  />
+
+                  <div className="mt-3 flex items-center justify-between">
+                    <span className="text-xs text-slate-400">Image status</span>
+
+                    <StatusBadge status={getImageStatus(selectedAsset)} />
+                  </div>
+                </>
+              ) : (
+                <p className="text-xs text-slate-500">
+                  Select an idea to view its image prompt.
+                </p>
+              )}
+            </div>
+          </Panel>
+
+          <Panel className="p-4">
+            <h3 className="text-sm font-semibold text-white">Bulk selection</h3>
+
+            <p className="mt-2 text-xs leading-relaxed text-slate-400">
+              Select multiple ideas without images. They will be available for
+              bulk image generation.
+            </p>
+
+            <div className="mt-4 flex items-center justify-between">
+              <span className="text-xs text-slate-400">Selected ideas</span>
+
+              <span className="text-sm font-semibold text-white">
+                {selectedMissingCount}
+              </span>
+            </div>
+
+            {selectedMissingCount > 0 && (
+              <button
+                type="button"
+                className={`${buttonClass} mt-3 w-full`}
+                onClick={clearSelection}
+              >
+                <X size={14} />
+                Clear selection
+              </button>
+            )}
+
+            <div className="mt-3 rounded-lg border border-[#303541] bg-[#111318] p-3">
+              <div className="flex items-center gap-2 text-xs text-slate-400">
+                <Clock3 size={14} />
+                Image generation queue will be implemented next.
+              </div>
+            </div>
+          </Panel>
+
+          <Panel className="p-4">
+            <h3 className="text-sm font-semibold text-white">
+              Idea information
+            </h3>
+
+            {selectedAsset ? (
+              <div className="mt-3 space-y-3 text-xs">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-slate-400">Category</span>
+
+                  <span className="text-right text-slate-200">
+                    {selectedAsset.category}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-slate-400">Created</span>
+
+                  <span className="text-right text-slate-200">
+                    {formatDate(selectedAsset.createdAt)}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-slate-400">Image attempts</span>
+
+                  <span className="text-right text-slate-200">
+                    {selectedAsset.images.length}
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <p className="mt-3 text-xs text-slate-500">No idea selected.</p>
+            )}
+          </Panel>
+        </div>
+      </div>
     </div>
   );
 }

@@ -58,6 +58,7 @@ pub async fn get_metadata_studio_data(pool: &SqlitePool) -> AppResult<MetadataSt
 
         LEFT JOIN assets a
             ON a.stock_idea_id = si.id
+            AND a.source_type != 'manual'
             AND a.deleted_at IS NULL
             AND a.is_archived = 0
             AND a.status != 'published'
@@ -93,6 +94,7 @@ pub async fn get_metadata_studio_data(pool: &SqlitePool) -> AppResult<MetadataSt
             let item = MetadataStudioItem {
                 id: idea_id.clone(),
                 name: row.try_get("name")?,
+                source: "generated".to_string(),
                 category: row.try_get("category")?,
                 title: row.try_get("title")?,
                 description: row.try_get("description")?,
@@ -125,7 +127,94 @@ pub async fn get_metadata_studio_data(pool: &SqlitePool) -> AppResult<MetadataSt
             items[index].images.push(image);
         }
     }
+    let manual_rows = sqlx::query(
+        r#"
+    SELECT
+        a.id AS asset_id,
+        a.original_filename,
+        a.display_name,
+        a.status AS asset_status,
+        a.is_selected,
+        a.created_at AS asset_created_at,
 
+        COALESCE(mr.category, b.category, 'Uncategorized') AS category,
+        COALESCE(mr.title, a.display_name, a.original_filename) AS title,
+        COALESCE(mr.description, '') AS description,
+
+        COALESCE(
+            (
+                SELECT json_group_array(keyword)
+                FROM (
+                    SELECT keyword
+                    FROM metadata_keywords
+                    WHERE metadata_revision_id = mr.id
+                    ORDER BY position
+                )
+            ),
+            '[]'
+        ) AS keywords_json,
+
+        (
+            SELECT af.storage_path
+            FROM asset_files af
+            WHERE af.asset_id = a.id
+              AND af.file_type IN ('original', 'preview')
+            ORDER BY
+                CASE af.file_type
+                    WHEN 'preview' THEN 0
+                    ELSE 1
+                END
+            LIMIT 1
+        ) AS image_path
+
+    FROM assets a
+
+    LEFT JOIN batches b
+        ON b.id = a.batch_id
+
+    LEFT JOIN metadata_revisions mr
+        ON mr.asset_id = a.id
+        AND mr.is_current = 1
+
+    WHERE a.source_type = 'manual'
+      AND a.deleted_at IS NULL
+      AND a.is_archived = 0
+      AND a.status != 'published'
+      AND a.submission_status != 'published'
+
+    ORDER BY a.created_at DESC
+    "#,
+    )
+    .fetch_all(pool)
+    .await?;
+
+    for row in manual_rows {
+        let keywords_json: String = row.try_get("keywords_json")?;
+
+        let item = MetadataStudioItem {
+            id: row.try_get("asset_id")?,
+            source: "manual".to_string(),
+            name: row
+                .try_get::<Option<String>, _>("display_name")?
+                .unwrap_or(row.try_get("original_filename")?),
+            category: row.try_get("category")?,
+            title: row.try_get("title")?,
+            description: row.try_get("description")?,
+            keywords: serde_json::from_str(&keywords_json)?,
+            image_prompt: String::new(),
+            images: vec![MetadataStudioImage {
+                asset_id: row.try_get("asset_id")?,
+                image_path: row.try_get("image_path")?,
+                image_generation_status: "not_started".to_string(),
+                is_selected: row.try_get::<i64, _>("is_selected")? != 0,
+                status: row.try_get("asset_status")?,
+                created_at: row.try_get("asset_created_at")?,
+            }],
+            created_at: row.try_get("asset_created_at")?,
+        };
+
+        items.push(item);
+    }
     let total = items.len() as i64;
 
     let missing_images = items

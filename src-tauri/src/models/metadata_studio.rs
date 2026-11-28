@@ -15,6 +15,7 @@ pub struct MetadataStudioImage {
 #[serde(rename_all = "camelCase")]
 pub struct MetadataStudioItem {
     pub id: String,
+    pub source: String,
     pub name: String,
     pub category: String,
     pub title: String,
