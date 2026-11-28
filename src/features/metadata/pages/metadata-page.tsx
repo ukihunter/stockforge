@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import { toast } from "sonner";
+import { convertFileSrc } from "@tauri-apps/api/core";
 // import ManualBatchWorkspace from "../components/manual-batch-workspace";
 import {
   AlertCircle,
@@ -23,6 +24,7 @@ import {
   inputClass,
   buttonClass,
 } from "@/components/ui/page-ui";
+import ManualBatchWorkspace from "../components/manual-batch-workspace";
 
 interface MetadataStudioImage {
   assetId: string;
@@ -394,7 +396,7 @@ export default function MetadataPage() {
   function clearSelection() {
     setSelectedIds(new Set());
   }
-
+  console.log("Selected image path:", selectedImage?.imagePath);
   return (
     <div>
       <PageHeader
@@ -629,19 +631,26 @@ export default function MetadataPage() {
               description={selectedAsset?.name ?? "Select a stock idea"}
             />
 
-            <div className="flex aspect-[16/7] flex-col items-center justify-center gap-3 bg-gradient-to-br from-indigo-500/10 via-[#25283A] to-slate-900">
+            <div className="flex aspect-[16/7] flex-col items-center justify-center gap-3 overflow-hidden rounded-lg bg-gradient-to-br from-indigo-500/10 via-[#25283A] to-slate-900">
               {selectedImage?.imagePath ? (
                 <>
-                  <Check size={36} className="text-emerald-400" />
-
-                  <p className="text-sm text-emerald-300">Image file linked</p>
-
-                  <p className="max-w-[80%] break-all text-center text-[11px] text-slate-500">
-                    {getFileName(selectedImage.imagePath)}
-                  </p>
+                  <img
+                    src={convertFileSrc(selectedImage.imagePath)}
+                    alt="Selected asset"
+                    className="h-full w-full object-contain"
+                    onLoad={(event) => {
+                      console.log("IMAGE LOADED:", event.currentTarget.src);
+                    }}
+                    onError={(event) => {
+                      console.error("IMAGE FAILED:", {
+                        path: selectedImage.imagePath,
+                        url: event.currentTarget.src,
+                      });
+                    }}
+                  />
 
                   {selectedImage.isSelected && (
-                    <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-[10px] text-emerald-400">
+                    <span className="absolute rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-[10px] text-emerald-400">
                       Selected image
                     </span>
                   )}
@@ -996,6 +1005,7 @@ export default function MetadataPage() {
               Save Changes
             </button>
           </div>
+          <ManualBatchWorkspace />
         </div>
       </div>
     </div>
