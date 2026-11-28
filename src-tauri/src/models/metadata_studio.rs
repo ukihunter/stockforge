@@ -1,4 +1,4 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -33,4 +33,17 @@ pub struct MetadataStudioData {
     pub total: i64,
     pub missing_images: i64,
     pub images_ready: i64,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MetadataStudioUpdate {
+    pub id: String,
+    pub source: String,
+    pub name: String,
+    pub category: String,
+    pub title: String,
+    pub description: String,
+    pub keywords: Vec<String>,
+    pub image_prompt: String,
 }

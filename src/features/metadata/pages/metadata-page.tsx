@@ -45,6 +45,11 @@ interface MetadataStudioItem {
   createdAt: string;
 }
 
+type EditableMetadata = Pick<
+  MetadataStudioItem,
+  "name" | "category" | "title" | "description" | "keywords" | "imagePrompt"
+>;
+
 interface MetadataStudioData {
   items: MetadataStudioItem[];
   total: number;
@@ -107,6 +112,10 @@ export default function MetadataPage() {
   const [activeTab, setActiveTab] = useState<"all" | "generated" | "manual">(
     "all",
   );
+
+  const [metadataDrafts, setMetadataDrafts] = useState<
+    Record<string, EditableMetadata>
+  >({});
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [importing, setImporting] = useState(false);
@@ -201,6 +210,97 @@ export default function MetadataPage() {
     null;
 
   const selectedImage = selectedAsset ? getSelectedImage(selectedAsset) : null;
+
+  const selectedMetadata: EditableMetadata | null = selectedAsset
+    ? (metadataDrafts[selectedAsset.id] ?? {
+        name: selectedAsset.name,
+        category: selectedAsset.category,
+        title: selectedAsset.title,
+        description: selectedAsset.description,
+        keywords: selectedAsset.keywords,
+        imagePrompt: selectedAsset.imagePrompt,
+      })
+    : null;
+
+  const hasUnsavedChanges = Boolean(
+    selectedAsset &&
+    selectedMetadata &&
+    (selectedMetadata.name !== selectedAsset.name ||
+      selectedMetadata.category !== selectedAsset.category ||
+      selectedMetadata.title !== selectedAsset.title ||
+      selectedMetadata.description !== selectedAsset.description ||
+      JSON.stringify(selectedMetadata.keywords) !==
+        JSON.stringify(selectedAsset.keywords) ||
+      selectedMetadata.imagePrompt !== selectedAsset.imagePrompt),
+  );
+
+  function updateSelectedMetadata<K extends keyof EditableMetadata>(
+    field: K,
+    value: EditableMetadata[K],
+  ) {
+    if (!selectedAsset) return;
+
+    setMetadataDrafts((current) => ({
+      ...current,
+      [selectedAsset.id]: {
+        ...(current[selectedAsset.id] ?? {
+          name: selectedAsset.name,
+          category: selectedAsset.category,
+          title: selectedAsset.title,
+          description: selectedAsset.description,
+          keywords: selectedAsset.keywords,
+          imagePrompt: selectedAsset.imagePrompt,
+        }),
+        [field]: value,
+      },
+    }));
+  }
+
+  async function handleSaveMetadataChanges() {
+    if (!selectedAsset || !selectedMetadata || !hasUnsavedChanges) return;
+
+    const assetId = selectedAsset.id;
+
+    setError(null);
+    setSuccess(null);
+
+    try {
+      await invoke("save_metadata_studio_item", {
+        input: {
+          id: selectedAsset.id,
+          source: selectedAsset.source,
+          name: selectedMetadata.name,
+          category: selectedMetadata.category,
+          title: selectedMetadata.title,
+          description: selectedMetadata.description,
+          keywords: selectedMetadata.keywords,
+          imagePrompt: selectedMetadata.imagePrompt,
+        },
+      });
+
+      // Update the frontend only after the database save succeeds.
+      setData((current) => {
+        if (!current) return current;
+
+        return {
+          ...current,
+          items: current.items.map((item) =>
+            item.id === assetId ? { ...item, ...selectedMetadata } : item,
+          ),
+        };
+      });
+
+      setMetadataDrafts((current) => {
+        const next = { ...current };
+        delete next[assetId];
+        return next;
+      });
+
+      setSuccess("Metadata changes saved successfully.");
+    } catch (error) {
+      setError(error instanceof Error ? error.message : String(error));
+    }
+  }
 
   // Only generated ideas can be selected for bulk image generation.
   const missingImageItems = filteredItems.filter(
@@ -673,6 +773,34 @@ export default function MetadataPage() {
             {selectedAsset ? (
               <div className="space-y-5 p-5">
                 <div>
+                  <label className="mb-2 block text-xs font-medium text-slate-300">
+                    Asset name
+                  </label>
+
+                  <input
+                    className={inputClass}
+                    value={selectedMetadata?.name ?? ""}
+                    onChange={(event) =>
+                      updateSelectedMetadata("name", event.target.value)
+                    }
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-xs font-medium text-slate-300">
+                    Category
+                  </label>
+
+                  <input
+                    className={inputClass}
+                    value={selectedMetadata?.category ?? ""}
+                    onChange={(event) =>
+                      updateSelectedMetadata("category", event.target.value)
+                    }
+                  />
+                </div>
+
+                <div>
                   <div className="mb-2 flex items-center justify-between">
                     <label className="text-xs font-medium text-slate-300">
                       Title
@@ -684,9 +812,11 @@ export default function MetadataPage() {
                   </div>
 
                   <textarea
-                    readOnly
                     className={`${inputClass} min-h-20 resize-y`}
-                    value={selectedAsset.title}
+                    value={selectedMetadata?.title ?? ""}
+                    onChange={(event) =>
+                      updateSelectedMetadata("title", event.target.value)
+                    }
                   />
                 </div>
 
@@ -702,9 +832,11 @@ export default function MetadataPage() {
                   </div>
 
                   <textarea
-                    readOnly
                     className={`${inputClass} min-h-32 resize-y`}
-                    value={selectedAsset.description}
+                    value={selectedMetadata?.description ?? ""}
+                    onChange={(event) =>
+                      updateSelectedMetadata("description", event.target.value)
+                    }
                   />
                 </div>
 
@@ -719,22 +851,20 @@ export default function MetadataPage() {
                     </span>
                   </div>
 
-                  <div className="flex flex-wrap gap-2 rounded-lg border border-[#303541] bg-[#111318] p-3">
-                    {selectedAsset.keywords.map((keyword, index) => (
-                      <span
-                        key={`${keyword}-${index}`}
-                        className="rounded-md border border-[#45405F] bg-[#29243D] px-2 py-1 text-xs text-[#C5BCFF]"
-                      >
-                        {keyword}
-                      </span>
-                    ))}
-
-                    {selectedAsset.keywords.length === 0 && (
-                      <p className="text-xs text-slate-500">
-                        No keywords available.
-                      </p>
-                    )}
-                  </div>
+                  <textarea
+                    className={`${inputClass} min-h-24 resize-y`}
+                    placeholder="Enter keywords separated by commas"
+                    value={selectedMetadata?.keywords.join(", ") ?? ""}
+                    onChange={(event) =>
+                      updateSelectedMetadata(
+                        "keywords",
+                        event.target.value
+                          .split(",")
+                          .map((keyword) => keyword.trim())
+                          .filter(Boolean),
+                      )
+                    }
+                  />
                 </div>
               </div>
             ) : (
@@ -828,7 +958,7 @@ export default function MetadataPage() {
                   <span className="text-slate-400">Category</span>
 
                   <span className="text-right text-slate-200">
-                    {selectedAsset.category}
+                    {selectedMetadata?.category ?? selectedAsset.category}
                   </span>
                 </div>
 
@@ -852,6 +982,20 @@ export default function MetadataPage() {
               <p className="mt-3 text-xs text-slate-500">No idea selected.</p>
             )}
           </Panel>
+          <div className="flex items-center justify-between gap-3 border-t border-[#272B35] p-4">
+            <span className="text-xs text-slate-400">
+              {hasUnsavedChanges ? "Unsaved changes" : "All changes saved"}
+            </span>
+
+            <button
+              type="button"
+              onClick={handleSaveMetadataChanges}
+              disabled={!hasUnsavedChanges}
+              className={`${buttonClass} disabled:cursor-not-allowed disabled:opacity-40`}
+            >
+              Save Changes
+            </button>
+          </div>
         </div>
       </div>
     </div>

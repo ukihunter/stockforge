@@ -126,7 +126,7 @@ export const inputClass =
   "w-full rounded-lg border sf-accent-border bg-[#111318] px-3 py-2.5 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-[#8B7CFF] focus:ring-2 focus:ring-[#8B7CFF]/10";
 
 export const buttonClass =
-  "inline-flex items-center justify-center gap-2 rounded-lg border border-[#303541] bg-[#222630] px-3.5 py-2.5 text-sm font-medium text-slate-200 transition hover:bg-[#2B303B] disabled:cursor-not-allowed disabled:opacity-50";
+  "inline-flex items-center justify-center gap-2 rounded-lg sf-accent-bg border border-[#303541] bg-[#222630] px-3.5 py-2.5 text-sm font-medium text-slate-200 transition hover:bg-[#2B303B] disabled:cursor-not-allowed disabled:opacity-50";
 
 export const primaryButtonClass =
   "inline-flex items-center justify-center gap-2 rounded-lg sf-accent-bg px-3.5 py-2.5 text-sm font-medium text-white transition hover:bg-[#7969F5] disabled:cursor-not-allowed disabled:opacity-50";

@@ -9,6 +9,8 @@ use crate::errors::{AppError, AppResult};
 
 use crate::models::metadata_studio::{MetadataStudioData, MetadataStudioImage, MetadataStudioItem};
 
+use crate::models::metadata_studio::MetadataStudioUpdate;
+
 pub async fn get_metadata_studio_data(pool: &SqlitePool) -> AppResult<MetadataStudioData> {
     let rows = sqlx::query(
         r#"
@@ -399,4 +401,203 @@ pub async fn import_manual_image(
     }
 
     Ok(asset_id)
+}
+
+pub async fn save_metadata_studio_item(
+    pool: &SqlitePool,
+    input: MetadataStudioUpdate,
+) -> AppResult<()> {
+    let name = input.name.trim();
+    let category = input.category.trim();
+    let title = input.title.trim();
+    let description = input.description.trim();
+    let image_prompt = input.image_prompt.trim();
+
+    if name.is_empty() {
+        return Err(AppError::InvalidInput("Asset name cannot be empty.".into()));
+    }
+
+    if category.is_empty() {
+        return Err(AppError::InvalidInput("Category cannot be empty.".into()));
+    }
+
+    if title.is_empty() {
+        return Err(AppError::InvalidInput("Title cannot be empty.".into()));
+    }
+
+    let keywords: Vec<String> = input
+        .keywords
+        .into_iter()
+        .map(|keyword| keyword.trim().to_string())
+        .filter(|keyword| !keyword.is_empty())
+        .collect();
+
+    if keywords.len() > 50 {
+        return Err(AppError::InvalidInput(
+            "A maximum of 50 keywords is allowed.".into(),
+        ));
+    }
+
+    let mut transaction = pool.begin().await?;
+
+    match input.source.as_str() {
+        "generated" => {
+            let keywords_json = serde_json::to_string(&keywords)?;
+
+            let result = sqlx::query(
+                r#"
+                UPDATE stock_ideas
+                SET
+                    name = ?,
+                    category = ?,
+                    title = ?,
+                    description = ?,
+                    keywords_json = ?,
+                    image_prompt = ?
+                WHERE id = ?
+                "#,
+            )
+            .bind(name)
+            .bind(category)
+            .bind(title)
+            .bind(description)
+            .bind(keywords_json)
+            .bind(image_prompt)
+            .bind(&input.id)
+            .execute(&mut *transaction)
+            .await?;
+
+            if result.rows_affected() == 0 {
+                return Err(AppError::InvalidInput(
+                    "Generated stock idea not found.".into(),
+                ));
+            }
+        }
+
+        "manual" => {
+            let asset_exists: bool = sqlx::query_scalar(
+                r#"
+                SELECT EXISTS(
+                    SELECT 1
+                    FROM assets
+                    WHERE id = ?
+                      AND source_type = 'manual'
+                      AND deleted_at IS NULL
+                      AND is_archived = 0
+                      AND status != 'published'
+                      AND submission_status != 'published'
+                )
+                "#,
+            )
+            .bind(&input.id)
+            .fetch_one(&mut *transaction)
+            .await?;
+
+            if !asset_exists {
+                return Err(AppError::InvalidInput(
+                    "Manual asset not found or is no longer editable.".into(),
+                ));
+            }
+
+            sqlx::query(
+                r#"
+                UPDATE assets
+                SET
+                    display_name = ?,
+                    updated_at = datetime('now')
+                WHERE id = ?
+                "#,
+            )
+            .bind(name)
+            .bind(&input.id)
+            .execute(&mut *transaction)
+            .await?;
+
+            let revision_number: i64 = sqlx::query_scalar(
+                r#"
+                SELECT COALESCE(MAX(revision_number), 0) + 1
+                FROM metadata_revisions
+                WHERE asset_id = ?
+                "#,
+            )
+            .bind(&input.id)
+            .fetch_one(&mut *transaction)
+            .await?;
+
+            // Preserve the previous revision as history.
+            sqlx::query(
+                r#"
+                UPDATE metadata_revisions
+                SET is_current = 0
+                WHERE asset_id = ?
+                  AND is_current = 1
+                "#,
+            )
+            .bind(&input.id)
+            .execute(&mut *transaction)
+            .await?;
+
+            let revision_id = Uuid::new_v4().to_string();
+
+            sqlx::query(
+                r#"
+                INSERT INTO metadata_revisions (
+                    id,
+                    asset_id,
+                    revision_number,
+                    title,
+                    description,
+                    keyword_count,
+                    generated_by,
+                    status,
+                    is_current,
+                    created_at,
+                    category
+                )
+                VALUES (?, ?, ?, ?, ?, ?, 'manual', 'review_required', 1,
+                        datetime('now'), ?)
+                "#,
+            )
+            .bind(&revision_id)
+            .bind(&input.id)
+            .bind(revision_number)
+            .bind(title)
+            .bind(description)
+            .bind(keywords.len() as i64)
+            .bind(category)
+            .execute(&mut *transaction)
+            .await?;
+
+            for (position, keyword) in keywords.iter().enumerate() {
+                sqlx::query(
+                    r#"
+                    INSERT INTO metadata_keywords (
+                        id,
+                        metadata_revision_id,
+                        keyword,
+                        position,
+                        created_at
+                    )
+                    VALUES (?, ?, ?, ?, datetime('now'))
+                    "#,
+                )
+                .bind(Uuid::new_v4().to_string())
+                .bind(&revision_id)
+                .bind(keyword)
+                .bind(position as i64)
+                .execute(&mut *transaction)
+                .await?;
+            }
+        }
+
+        _ => {
+            return Err(AppError::InvalidInput(
+                "Invalid Metadata Studio item source.".into(),
+            ));
+        }
+    }
+
+    transaction.commit().await?;
+
+    Ok(())
 }

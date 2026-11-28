@@ -123,6 +123,7 @@ pub fn run() {
             commands::batches::create_batch,
             commands::batches::get_batches,
             commands::manual_assets::import_manual_batch_assets,
+            commands::metadata_studio::save_metadata_studio_item,
         ])
         .run(tauri::generate_context!())
         .expect("Failed to run StockForge");
