@@ -24,7 +24,7 @@
 </div>
 
 <div align="center">
-<img src="https://progress-bar.xyz/23/?width=500&color=f44c71&title=Project%20Progress" />
+<img src="https://progress-bar.xyz/30/?width=500&color=f44c71&title=Project%20Progress" />
 </div>
 
 **StockForge** is a local-first desktop application designed to streamline and organize the creation, management, and preparation of digital assets for Adobe Stock.
